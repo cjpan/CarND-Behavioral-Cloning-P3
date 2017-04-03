@@ -58,6 +58,7 @@ def telemetry(sid, data):
         # The current speed of the car
         speed = data["speed"]
         # The current image from the center camera of the car
+        print(steering_angle, throttle, speed)
         imgString = data["image"]
         image = Image.open(BytesIO(base64.b64decode(imgString)))
         image_array = np.asarray(image)
