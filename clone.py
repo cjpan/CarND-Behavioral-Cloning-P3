@@ -8,13 +8,13 @@ log_data = pd.read_csv(log_name)
 samples = np.array(log_data.values)
 
 from sklearn.model_selection import train_test_split
-train_samples, validation_samples = train_test_split(samples, test_size=0.1)
+train_samples, validation_samples = train_test_split(samples, test_size=0.2)
 from sklearn.utils import shuffle
 
 def random_selection(x):
-    return abs(x[3]) > 0.1 or np.random.randint(0,100) < 15
+    return abs(x[3]) > 0.1 or np.random.randint(0,100) < 10
 
-train_samples = list(filter(random_selection, np.array(train_samples)))
+#train_samples = list(filter(random_selection, np.array(train_samples)))
 
 cameras = [0, 1, 2]
 steer_offset = [0, .25, -.25]
@@ -180,7 +180,7 @@ model.fit_generator(train_gen,
                     steps_per_epoch=len(train_samples)/batch_size,
                     validation_data=validation_gen,
                     validation_steps=len(validation_samples)/batch_size,
-                    epochs=10,
+                    epochs=5,
                     verbose=2)
 
 model.save('model.h5')
