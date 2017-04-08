@@ -1,23 +1,29 @@
 import pandas as pd
 import cv2
 import numpy as np
+import matplotlib.pyplot as plt
 
 log_name = './data/driving_log.csv'
 log_data = pd.read_csv(log_name)
-
 samples = np.array(log_data.values)
 
+
 from sklearn.model_selection import train_test_split
-train_samples, validation_samples = train_test_split(samples, test_size=0.2)
 from sklearn.utils import shuffle
+# 20% of data for validation.
+train_samples, validation_samples = train_test_split(samples, test_size=0.2)
+
 
 def random_selection(x):
-    return abs(x[3]) > 0.1 or np.random.randint(0,100) < 10
+    # for data with tiny steering angles, randomly select 20%
+    return abs(x[3]) > 0.1 or np.random.randint(0,100) < 20
 
-#train_samples = list(filter(random_selection, np.array(train_samples)))
+train_samples = list(filter(random_selection, np.array(train_samples)))
 
+# offsets for different cameras
 cameras = [0, 1, 2]
 steer_offset = [0, .25, -.25]
+
 
 def train_generator(samples, batch_size=32):
     num_samples = len(samples)
@@ -35,21 +41,22 @@ def train_generator(samples, batch_size=32):
                 current_path = './data/IMG/' + filename
                 image = cv2.imread(current_path)
                 image = image[65:135,:,:]
-                #image = cv2.resize(image, (64,64))
+                # add offset for different cameras.
                 steer = float(sample[3] + steer_offset[camera])
                 if steer > 1:
                     steer = 1.
                 if steer < -1:
                     steer = -1.
-                #images.append(image)
-                #steers.append(steer)
 
+                # flip half of the images
                 if np.random.randint(0,10) < 5:
                     image = cv2.flip(image, 1)
                     steer = -steer
 
-                max_shift = 50
-                max_steer = 0.1
+                # randomly shift the image and adjust the steering angle.
+                # 0.002 for per pixel.
+                max_shift = 25
+                max_steer = 0.05
                 f = np.random.random_integers(-max_shift, max_shift)
                 M = np.float32([[1,0,f],[0,1,0]])
                 shift_img = cv2.warpAffine(image, M, (image.shape[1], image.shape[0]))
@@ -59,17 +66,15 @@ def train_generator(samples, batch_size=32):
                     steer = 1.
                 if steer < -1:
                     steer = -1.
-                #images.append(shift_img)
-                #steers.append(shift_steer)
 
+                # randomly adjust the brightness for each training image.
                 bright_img = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
                 random_bright = np.random.uniform(.5, 1.5)
                 bright_img[:,:,2] = bright_img[:,:,2] * random_bright
                 bright_img = cv2.cvtColor(bright_img, cv2.COLOR_HSV2BGR)
-                    #images.append(bright_img)
-                    #steers.append(s)
                 image = bright_img
 
+                # add random shadows for each training image.
                 h, w = image.shape[0], image.shape[1]
                 v1 = [0, 0]
                 v2 = [np.random.randint(0,w), 0]
@@ -81,6 +86,8 @@ def train_generator(samples, batch_size=32):
                 shadow_img = cv2.addWeighted(mask, alpha, image, 1-alpha, 0)
                 image = shadow_img
 
+                # resize training image to 66x200
+                # and color space to RGB to fit the input of training network
                 image = cv2.resize(image, (200,66))
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
@@ -100,7 +107,8 @@ def validation_generator(samples, batch_size=32):
 
             images = []
             steers = []
-
+            # use original images of center camera for validation.
+            # Only size and color space is converted to fit the model.
             for sample in batch_samples:
                 filename = sample[0].split('/')[-1]
                 current_path = './data/IMG/' + filename
@@ -116,7 +124,7 @@ def validation_generator(samples, batch_size=32):
             y_valid = np.array(steers)
             yield shuffle(X_valid, y_valid)
 
-batch_size = 64
+batch_size = 128
 train_gen = train_generator(train_samples, batch_size=batch_size)
 validation_gen = validation_generator(validation_samples, batch_size=batch_size)
 
@@ -126,61 +134,39 @@ from keras.layers.convolutional import Conv2D
 from keras.optimizers import Adam
 
 model = Sequential()
-#model.add(Cropping2D(((,25),(0,0)), input_shape=(160,320,3)))
 model.add(Lambda(lambda x: (x / 255.) - 0.5, input_shape=(66,200,3)))
 model.add(Conv2D(24, (5, 5), strides=(2,2), activation="relu"))
 model.add(Conv2D(36, (5, 5), strides=(2,2), activation="relu"))
 model.add(Conv2D(48, (5, 5), strides=(2,2), activation="relu"))
-#model.add(Dropout(.4))
 model.add(Conv2D(64, (3, 3), activation="relu"))
 model.add(Conv2D(64, (3, 3), activation="relu"))
-#model.add(Dropout(.3))
 model.add(Flatten())
 model.add(Dropout(.5))
 model.add(Dense(100))
 model.add(Dense(50))
-model.add(Dropout(.25))
+model.add(Dropout(.4))
 model.add(Dense(10))
 model.add(Dense(1))
-
-# model = Sequential()
-# # Normalize
-# #model.add(Lambda(lambda x: x/127.5 - 1.0,input_shape=(64,64,3)))
-# model.add(Lambda(lambda x: x/127.5 - 1., input_shape=(64,64,3)))
-# #model.add(Convolution2D(3,1,1,border_mode='valid', name='conv0'))
-# # layer 1 output shape is 32x32x32
-# model.add(Conv2D(32, (3, 3), input_shape=(64, 64, 3), strides=(2, 2), padding='same', activation='relu'))
-# # layer 2 output shape is 15x15x16
-# model.add(MaxPooling2D(pool_size=(2,2), padding='same'))
-# model.add(Conv2D(64, (3, 3), strides=(2,2), padding='same', activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2,2), padding='same'))
-# # layer 3 output shape is 13x13x16
-# model.add(Conv2D(128, (3, 3), padding='same', activation='relu'))
-# model.add(MaxPooling2D(pool_size=(2,2), padding='same'))
-# model.add(Conv2D(128, (2, 2), padding='same', activation='relu'))
-# # Flatten the output
-# model.add(Flatten())
-# # layer 4
-# model.add(Dropout(.2))
-# model.add(Dense(128, activation='relu'))
-# model.add(Dropout(.5))
-# model.add(Dense(128, activation='relu'))
-# model.add(Dropout(.5))
-# # layer 5
-# model.add(Dense(64, activation='relu'))
-# # Finally a single output, since this is a regression problem
-# model.add(Dense(1))
 
 print(model.summary())
 
 
 model.compile(loss='mse', optimizer=Adam())
 print(len(train_samples), len(validation_samples))
-model.fit_generator(train_gen,
+history_object = model.fit_generator(train_gen,
                     steps_per_epoch=len(train_samples)/batch_size,
                     validation_data=validation_gen,
                     validation_steps=len(validation_samples)/batch_size,
-                    epochs=5,
+                    epochs=10,
                     verbose=2)
 
 model.save('model.h5')
+
+# visualize the loss/val_loss.
+plt.plot(history_object.history['loss'])
+plt.plot(history_object.history['val_loss'])
+plt.title('model mean squared error loss')
+plt.ylabel('mean squared error loss')
+plt.xlabel('epoch')
+plt.legend(['training set', 'validation set'], loc='upper right')
+plt.show()
