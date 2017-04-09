@@ -54,8 +54,6 @@ I copy almost the full Nvidia's architecture introduced in the lesson and  their
 
 The only difference from the original network is that I use 2 dropout layers in fully connected layers to reduce overfitting.
 
-
-
 #### 2. Attempts to reduce overfitting in the model
 
 The model contains dropout layers in order to reduce overfitting (model.py lines 144 and 147).
@@ -68,7 +66,7 @@ The model was tested by running it through the simulator and ensuring that the v
 
 The model used an adam optimizer, so the learning rate was not tuned manually (model.py line 154).
 The batch size is set to 128.
-I run 10 epochs of training to ensure that the training run enough times.
+I run 10 epochs of training to ensure that the training was enough to make the error decrease to a stable value.
 
 #### 4. Appropriate training data
 
@@ -87,10 +85,10 @@ The network is used to map raw pixels from front camera to predict steering comm
 
 My first step was to use a convolution neural network model similar to the Nvidia's network introduced in the lesson and their [paper](http://images.nvidia.com/content/tegra/automotive/images/2016/solutions/pdf/end-to-end-dl-using-px.pdf). I thought this model might be appropriate because it is used for the similar goal to predict driving commands according to the images captured by camera in pratical situation.
 
-In order to gauge how well the model was working, I split my image and steering angle data into a training and validation set.
+In order to gauge how well the model was working, I split my image and steering angle data into training and validation sets.
 My model had a low mean squared error on both the training set and validation set. But in the track testing, the car always failed in the sharp turn. This implied the model was overfitting.
 
-I noticed the data set is inbalanced. The majority of the steering data is very small. So I try undersample the major data for balance.
+I noticed the data set is inbalanced. The majority of the steering data is very small. So I try undersampling the major data for balance by 20%.
 Also I augmented the data with random flipping, shifting, brightness adjustion and random shading to generate randomly new data for training to against the overfitting.
 
 Then the car sometimes would go to one side immediately when it starts after training. I suppose it became overfit to turn in that case. To combat the overfitting, I add 2 dropout layers into the models.
@@ -99,11 +97,14 @@ At the end of the process, the vehicle is able to drive autonomously around the 
 
 #### 2. Final Model Architecture
 
-The final model consists of a convolution neural network with 5x5 filter sizes and 3x3 filter sizes, and depths between 24 and 64 (model.py lines 138-142)
+I clone the training network from Nvidia's paper. It is a working network and created for similar usage, so I suppose it could work as well in my project.
+
+The model consists of a convolution neural network with 5x5 filter sizes and 3x3 filter sizes, and depths between 24 and 64 (model.py lines 138-142)
 
 The model includes RELU layers to introduce nonlinearity (model.py lines 138-142), and the data is normalized in the model using a Keras lambda layer (code line 137).
 
 Fully connected layers follows the convolutional layers.
+
 The only difference from the original network is that I use 2 dropout layers in fully connected layers to reduce overfitting.
 
 Here is my network architecture:
