@@ -10,8 +10,8 @@ samples = np.array(log_data.values)
 
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-# 20% of data for validation.
-train_samples, validation_samples = train_test_split(samples, test_size=0.2)
+# 10% of data for validation.
+train_samples, validation_samples = train_test_split(samples, test_size=0.1)
 
 
 def random_selection(x):
@@ -40,7 +40,7 @@ def train_generator(samples, batch_size=32):
                 filename = sample[camera].split('/')[-1]
                 current_path = './data/IMG/' + filename
                 image = cv2.imread(current_path)
-                image = image[65:135,:,:]
+                image = image[60:135,:,:]
                 # add offset for different cameras.
                 steer = float(sample[3] + steer_offset[camera])
                 if steer > 1:
@@ -76,12 +76,19 @@ def train_generator(samples, batch_size=32):
 
                 # add random shadows for each training image.
                 h, w = image.shape[0], image.shape[1]
-                v1 = [0, 0]
-                v2 = [np.random.randint(0,w), 0]
-                v3 = [np.random.randint(0,w), h]
-                v4 = [0, 64]
+                if np.random.randint(0, 2) == 1:
+                    v1 = [0, 0]
+                    v2 = [np.random.randint(0,w), 0]
+                    v3 = [np.random.randint(0,w), h]
+                    v4 = [0, h]
+                else:
+                    v1 = [w, 0]
+                    v2 = [np.random.randint(0, w), 0]
+                    v3 = [np.random.randint(0, w), h]
+                    v4 = [w, h]
                 vertices = np.array([v1, v2, v3, v4])
-                mask = cv2.fillConvexPoly(image, vertices, (0,0,0))
+                mask = np.copy(image)
+                mask = cv2.fillConvexPoly(mask, vertices, (0,0,0))
                 alpha = np.random.uniform(0.25, 0.75)
                 shadow_img = cv2.addWeighted(mask, alpha, image, 1-alpha, 0)
                 image = shadow_img
@@ -113,7 +120,7 @@ def validation_generator(samples, batch_size=32):
                 filename = sample[0].split('/')[-1]
                 current_path = './data/IMG/' + filename
                 image = cv2.imread(current_path)
-                image = image[65:135,:,:]
+                image = image[60:135,:,:]
                 image = cv2.resize(image, (200,66))
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 steer = float(sample[3])
